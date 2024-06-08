@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Path2Canvas</title>
+    <style>
+        html { text-align: center; font-family: system-ui; font-size: 12px; }
+        body { display: inline-grid; grid-template-columns: auto auto; justify-items: center; }
+        svg, canvas { box-shadow: 0 0 3px 1px #000; margin: 10px; }
+        pre { text-align: left; max-width: 350px; white-space: pre-wrap; font-size: 11px; margin-bottom: 2em; }
+    </style>
+</head>
+<body>
+<h1>SVG</h1>
+<h1>Canvas</h1>
+<script type="module">
+
+import { SVGPathToCanvas2D } from "../SVGPathToCanvas2D.js";
+
+function createSVG(d) {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    const path = document.createElementNS(svgNS, "path");
+    const P = 10;
+    path.setAttribute("d", d);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "#000");
+    svg.append(path);
+    document.body.append(svg);
+    const bbox = path.getBBox();
+    svg.remove();
+    svg.setAttribute("viewBox", `${bbox.x - P} ${bbox.y - P} ${bbox.width + 2*P} ${bbox.height + 2*P}`);
+    svg.setAttribute("width", bbox.width + 2*P);
+    svg.setAttribute("height", bbox.height + 2*P);
+    return svg;
+}
+
+function createCanvas(d, svg) {
+    const commands = SVGPathToCanvas2D(d);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = svg.getAttribute("width");
+    canvas.height = svg.getAttribute("height");
+    ctx.strokeStyle = "#000";
+    ctx.translate(-svg.viewBox.baseVal.x, -svg.viewBox.baseVal.y);
+    ctx.beginPath();
+    for (const { cmd, args } of commands) {
+        switch (cmd) {
+            case "M": ctx.moveTo(...args); break;
+            case "L": ctx.lineTo(...args); break;
+            case "C": ctx.bezierCurveTo(...args); break;
+            case "Q": ctx.quadraticCurveTo(...args); break;
+            case "A": ctx.ellipse(...args); break;
+            case "Z": ctx.closePath(); ctx.stroke(); ctx.beginPath(); break;
+        }
+    }
+    ctx.stroke();
+    return [canvas, commands];
+}
+
+function addtest(d) {
+    const div = document.createElement("div");
+    const svg = createSVG(d);
+    const [canvas, commands] = createCanvas(d, svg);
+    const psvg = document.createElement("pre");
+    const pcanvas = document.createElement("pre");
+    psvg.textContent = d.match(/([MLQTCSAZVH])([^MLQTCSAZVH]*)/gi).join("\n");
+    pcanvas.textContent = commands.map(({ cmd, args }) => `${cmd} ${args.join(", ")}`).join("\n");
+    document.body.append(svg, canvas, psvg, pcanvas);
+}
+
+const testCases = [
+    [
+        "M10 10 H 90 V 90 H 10 L 10 10",
+        "M100,200 C100,100 400,100 400,200",
+        "M100,500 C25,400 475,400 400,500",
+        "M100,800 C175,700 325,700 400,800",
+        "M600,200 C675,100 975,100 900,200",
+        "M600,500 C600,350 900,650 900,500",
+        "M600,800 C625,700 725,700 750,800 S875,900 900,800",
+    ],
+
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-01-t.svg
+    [
+        " M 210 130 C 145 130 110 80 110 80 S 75 25 10 25 m 0 105 c 65 0 100 -50 100 -50 s 35 -55 100 -55 ",
+        " M 240 90 c 0 30 7 50 50 0 c 43 -50 50 -30 50 0 c 0 83 -68 -34 -90 -30 C 240 60 240 90 240 90 z ",
+        "M80 170 C100 170 160 170 180 170Z",
+        "M5 260 C40 260 60 175 55 160 c -5 15 15 100 50 100Z",
+        "m 200 260 c 50 -40 50 -100 25 -100 s -25 60 25 100 ",
+        " M 360 100 C 420 90 460 140 450 190",
+        "M360 210 c 0 20 -16 36 -36 36 s -36 -16 -36 -36 s 16 -36 36 -36 s 36 16 36 36 z ",
+        "m 360 325 c -40 -60 95 -100 80 0 z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-02-t.svg
+    [
+        "M 15 20 Q 30 120 130 30 M 180 80 q -75 -100 -163 -60z",
+        "M372 130Q272 50 422 10zm70 0q50-150-80-90z",
+        "M224 103Q234 -12 304 33Z",
+        "M208 168Q258 268 308 168T258 118Q128 88 208 168z",
+        " M 60 100 Q -40 150 60 200 Q 160 150 60 100 z ",
+        "M240 296q25-100 47 0t47 0t47 0t47 0t47 0z",
+        "M172 193q-100 50 0 50Q72 243 172 293q100 -50 0 -50Q272 243 172 193z"
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-04-t.svg
+    [
+        " M 62.00000 56.00000 L 113.96152 146.00000 L 10.03848 146.00000 L 62.00000 56.00000 Z M 62.00000 71.00000 L 100.97114 138.50000 L 23.02886 138.50000 L 62.00000 71.00000 Z ",
+        " M 177.00000 56.00000 L 228.96152 146.00000 L 125.03848 146.00000 L 177.00000 56.00000 Z M 177.00000 71.00000 L 215.97114 138.50000 L 138.02886 138.50000 L 177.00000 71.00000 Z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-05-t.svg
+    [
+        " m 62.00000 190.00000 l 51.96152 90.00000 l -103.92304 0.00000 l 51.96152 -90.00000 z m 0.00000 15.00000 l 38.97114 67.50000 l -77.91228 0.00000 l 38.97114 -67.50000 z ",
+        " m 177.00000 190.00000 l 51.96152 90.00000 l -103.92304 0.00000 l 51.96152 -90.00000 z m 0.00000 15.00000 l 38.97114 67.50000 l -77.91228 0.00000 l 38.97114 -67.50000 z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-06-t.svg
+    [
+        " M 240.00000 56.00000 H 270.00000 V 86.00000 H 300.00000 V 116.00000 H 330.00000 V 146.00000 H 240.00000 V 56.00000 Z ",
+        " M 350.00000 56.00000 H 380.00000 V 86.00000 H 410.00000 V 116.00000 H 440.00000 V 146.00000 H 350.00000 V 56.00000 Z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-07-t.svg
+    [
+        " m 240.00000 190.00000 h 30.00000 v 30.00000 h 30.00000 v 30.00000 h 30.00000 v 30.00000 h -90.00000 v -90.00000 z ",
+        " m 350.00000 190.00000 h 30.00000 v 30.00000 h 30.00000 v 30.00000 h 30.00000 v 30.00000 h -90.00000 v -90.00000 z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-08-t.svg
+    [
+        " M 62.00000 56.00000 113.96152 146.00000 10.03848 146.00000 62.00000 56.00000 Z M 62.00000 71.00000 100.97114 138.50000 23.02886 138.50000 62.00000 71.00000 Z ",
+        " M 177.00000 56.00000 228.96152 146.00000 125.03848 146.00000 177.00000 56.00000 Z M 177.00000 71.00000 215.97114 138.50000 138.02886 138.50000 177.00000 71.00000 Z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-09-t.svg
+    [
+        " m 62.00000 190.00000 51.96152 90.00000 -103.92304 0.00000 51.96152 -90.00000 z m 0.00000 15.00000 38.97114 67.50000 -77.91228 0.00000 38.97114 -67.50000 z ",
+        " m 177.00000 190.00000 51.96152 90.00000 -103.92304 0.00000 51.96152 -90.00000 z m 0.00000 15.00000 38.97114 67.50000 -77.91228 0.00000 38.97114 -67.50000 z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-10-t.svg
+    [
+        "M 100 0 L 100 80 0 40 100 0",
+        "m 100 0 l 0 80 -100 -40 100 -40",
+        "M 100 0 L 100 80 0 40 100 0",
+        "M 0 0 L 100 40 0 80 Z",
+        "m 0 0 l 100 40 -100 40 z",
+        "M 0 0 L 100 40 0 80 Z"
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-12-t.svg
+    [
+        "M 100 100 C 100 20 200 20 200 100 S 300 180 300 100",
+        "M 100 250 S 200 200 200 250 300 300 300 250"
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-13-t.svg
+    [
+        " M 240.00000 56.00000 H 270.00000 300.00000 320.00000 400.00000 ",
+        " M 240.00000 156.00000 V 180.00000 200.00000 260.00000 300.00000 "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-14-t.svg
+    [
+        " m 62.00000 56.00000 51.96152 90.00000 -103.92304 0.00000 51.96152 -90.00000 z m 0.00000 15.00000 38.97114 67.50000 -77.91228 0.00000 38.97114 -67.50000 z ",
+        " M 177.00000 56.00000 228.96152 146.00000 125.03848 146.00000 177.00000 56.00000 Z M 177.00000 71.00000 215.97114 138.50000 138.02886 138.50000 177.00000 71.00000 Z "
+    ],
+    // https://dev.w3.org/SVG/profiles/1.2T/test/svg/paths-data-15-t.svg
+    [
+        "M 20 20 Q 50 10 80 20 110 30 140 20 170 10 200 20",
+        "M 20 50 T 50 50 80 50"
+    ],
+].flat();
+
+testCases.forEach(d => addtest(d));
+
+</script>
+</body>
+</html>
